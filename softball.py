@@ -5,7 +5,7 @@ players_info = {
     "Kevo": {"prefs": ["SS"]},
     "Werth": {"prefs": [], "no": ["P", "3B"]},
     "JD": {"prefs": ["3B", "SS"]},
-    "Andrew": {"prefs": []},
+    "Andrew": {"prefs": ["C", "RF"]},
     "Raymor": {"prefs": [], "no": ["3B", "P"]},  # versatile but no 3B or P
     "Balavich": {"prefs": ["OF"]},
     "Dave": {"prefs": []},
