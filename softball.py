@@ -2,7 +2,7 @@ import streamlit as st
 
 # Original team data
 players_info = {
-    "Kevo": {"prefs": ["P", "SS"]},
+    "Kevo": {"prefs": ["SS"]},
     "Werth": {"prefs": [], "no": ["P", "3B"]},
     "JD": {"prefs": ["3B", "SS"]},
     "Andrew": {"prefs": []},
