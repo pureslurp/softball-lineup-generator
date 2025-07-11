@@ -27,8 +27,8 @@ outfield_positions = {"LF", "LCF", "RCF", "RF"}
 # Outfield position importance (higher = more action)
 outfield_importance = {
     "LCF": 4,  # Most action
-    "RCF": 3,  # Second most action
-    "LF": 2,   # Third most action
+    "RCF": 2,  # Second most action
+    "LF": 3,   # Third most action
     "RF": 1    # Least action
 }
 
