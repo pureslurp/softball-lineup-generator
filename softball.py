@@ -12,17 +12,12 @@ players_info = {
     "KBoe": {"prefs": [], "no": ["2B", "SS", "3B"]},
     "Stross": {"prefs": ["2B", "SS", "OF"], "no": ["P"]},
     "Damion": {"prefs": ["1B"], "no": ["P", "3B", "SS", "2B", "OF", "C"]},
-    "Mike Mac": {"prefs": ["RCF"]},
+    "Uncle Rich": {"prefs": ["P"]},
     "JG": {"prefs": ["P","OF"]},
 }
 
-positions = [
-    "P", "C", "1B", "2B", "SS", "3B",
-    "LF", "LCF", "RCF", "RF"
-]
-
-infield_positions = {"P", "C", "1B", "2B", "SS", "3B"}
-outfield_positions = {"LF", "LCF", "RCF", "RF"}
+infield_positions = ["P", "C", "1B", "2B", "SS", "3B"]
+outfield_positions = ["LF", "LCF", "RCF", "RF"]
 
 # Outfield position importance (higher = more action)
 outfield_importance = {
@@ -31,6 +26,8 @@ outfield_importance = {
     "LF": 3,   # Third most action
     "RF": 1    # Least action
 }
+
+nine_players = False
 
 # Infield position importance (higher = more action)
 infield_importance = {
@@ -50,7 +47,7 @@ default_athleticism = {
     "Kevo": 6,
     "Stross": 7,
     "Damion": 6,
-    "Mike Mac": 3,
+    "Uncle Rich": 3,
     "Dave": 4,
     "Werth": 8,
     "Andrew": 2,
@@ -103,9 +100,12 @@ for guest in guest_names:
 # Filter available players after guests added
 available_players = [p for p, avail in availability.items() if avail]
 
-if len(available_players) < len(positions):
-    st.error(f"Not enough players available! You have {len(available_players)} but need {len(positions)} starters.")
-    st.stop()
+if len(available_players) < 10:
+    outfield_positions = ["LF", "LCF", "RF"]
+    if len(available_players) < 9:
+        st.error(f"Not enough players available! You have {len(available_players)} but need 9 starters.")
+        st.stop()
+positions = infield_positions + outfield_positions
 
 def player_can_play_pos(player, pos):
     p = all_players_info[player]
