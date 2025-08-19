@@ -295,8 +295,8 @@ def optimize_outfield(assignments):
         assignments[pos] = player
     return assignments
 st.set_page_config(layout="wide")
-
-tab_choice = st.selectbox("Select Page", ["Fielding", "Hitting"])
+st.title("Freebasers Softball")
+tab_choice = st.selectbox("Select Page", ["Hitting", "Fielding"])
 # tab1, tab2 = st.tabs(["Fielding", "Hitting"])
 # Original team data
 players_info = {
@@ -352,11 +352,67 @@ default_athleticism = {
     "JG": 1,
 }
 
+if tab_choice == "Hitting":
+    st.header("Hitting Stats")
+    
+    # Load per-game CSV
+    df_games = pd.read_csv("game_stats.csv")
+    
+    # Aggregate season totals per player
+    df_totals = df_games.groupby("Player", as_index=False).sum()
+
+    # Build team from totals
+    team = TeamBattingStatistics("Sharks")
+    for _, row in df_totals.iterrows():
+        player = PlayerBattingStatistics(
+            row["Player"],
+            ab=row["AB"],
+            runs=row["R"],
+            singles=row["1B"],
+            doubles=row["2B"],
+            triples=row["3B"],
+            hr=row["HR"],
+            rbi=row["RBI"],
+            bb=row["BB"],
+            so=row["SO"]
+        )
+        team.add_player(player)
+
+    # Convert to DataFrame (ready for Streamlit)
+    df_season, df_season_totals = team.to_dataframe(include_totals=True)
+
+    st.subheader("Season Totals")
+    st.dataframe(df_season, use_container_width=True, hide_index=True)
+    st.dataframe(df_season_totals, use_container_width=True, hide_index=True)
+
+    # --- Player selection for per-game stats ---
+    selected_player = st.selectbox(
+        "Select a player to see per-game stats", df_totals["Player"]
+    )
+
+    if selected_player:
+        df_player_games = df_games[df_games["Player"] == selected_player].copy()
+        
+        # Calculate per-game derived stats
+        df_player_games["H"] = df_player_games["1B"] + df_player_games["2B"] + df_player_games["3B"] + df_player_games["HR"]
+        df_player_games["AVG"] = df_player_games.apply(
+            lambda row: round(row["H"] / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
+        )
+        df_player_games["OBP"] = df_player_games.apply(
+            lambda row: round((row["H"] + row["BB"]) / (row["AB"] + row["BB"]), 3) if (row["AB"] + row["BB"]) > 0 else 0.0, axis=1
+        )
+        df_player_games["SLG"] = df_player_games.apply(
+            lambda row: round((row["1B"] + 2*row["2B"] + 3*row["3B"] + 4*row["HR"]) / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
+        )
+        df_player_games["OPS"] = df_player_games["OBP"] + df_player_games["SLG"]
+        df_player_games["ISO"] = df_player_games["SLG"] - df_player_games["AVG"]
+
+        st.subheader(f"{selected_player} - Per Game Stats")
+        st.dataframe(df_player_games, use_container_width=True, hide_index=True)
 
 
 if tab_choice == "Fielding":
-    st.title("Fielding")
-    st.subheader("Lineup Generator")
+    st.header("Lineup Generator")
     # --- Player Availability first ---
     st.sidebar.header("Player Availability")
     availability = {}
@@ -428,7 +484,7 @@ if tab_choice == "Fielding":
 
         
 
-    st.header("Starting Lineup")
+    st.subheader("Starting Lineup")
     st.table([{ "Position": pos, "Player": player } for pos, player in sorted(assignments.items(), key=lambda x: positions.index(x[0]))])
 
     # Debug: Show lineup with athleticism and preferences
@@ -461,61 +517,3 @@ if tab_choice == "Fielding":
         st.write(", ".join(subs))
     else:
         st.write("No subs available.")
-
-if tab_choice == "Hitting":
-    st.title("Hitting Stats")
-    
-    # Load per-game CSV
-    df_games = pd.read_csv("game_stats.csv")
-    
-    # Aggregate season totals per player
-    df_totals = df_games.groupby("Player", as_index=False).sum()
-
-    # Build team from totals
-    team = TeamBattingStatistics("Sharks")
-    for _, row in df_totals.iterrows():
-        player = PlayerBattingStatistics(
-            row["Player"],
-            ab=row["AB"],
-            runs=row["R"],
-            singles=row["1B"],
-            doubles=row["2B"],
-            triples=row["3B"],
-            hr=row["HR"],
-            rbi=row["RBI"],
-            bb=row["BB"],
-            so=row["SO"]
-        )
-        team.add_player(player)
-
-    # Convert to DataFrame (ready for Streamlit)
-    df_season, df_season_totals = team.to_dataframe(include_totals=True)
-
-    st.subheader("Season Totals")
-    st.dataframe(df_season, use_container_width=True, hide_index=True)
-    st.dataframe(df_season_totals, use_container_width=True, hide_index=True)
-
-    # --- Player selection for per-game stats ---
-    selected_player = st.selectbox(
-        "Select a player to see per-game stats", df_totals["Player"]
-    )
-
-    if selected_player:
-        df_player_games = df_games[df_games["Player"] == selected_player].copy()
-        
-        # Calculate per-game derived stats
-        df_player_games["H"] = df_player_games["1B"] + df_player_games["2B"] + df_player_games["3B"] + df_player_games["HR"]
-        df_player_games["AVG"] = df_player_games.apply(
-            lambda row: round(row["H"] / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
-        )
-        df_player_games["OBP"] = df_player_games.apply(
-            lambda row: round((row["H"] + row["BB"]) / (row["AB"] + row["BB"]), 3) if (row["AB"] + row["BB"]) > 0 else 0.0, axis=1
-        )
-        df_player_games["SLG"] = df_player_games.apply(
-            lambda row: round((row["1B"] + 2*row["2B"] + 3*row["3B"] + 4*row["HR"]) / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
-        )
-        df_player_games["OPS"] = df_player_games["OBP"] + df_player_games["SLG"]
-        df_player_games["ISO"] = df_player_games["SLG"] - df_player_games["AVG"]
-
-        st.subheader(f"{selected_player} - Per Game Stats")
-        st.dataframe(df_player_games, use_container_width=True, hide_index=True)
