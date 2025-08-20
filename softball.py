@@ -64,12 +64,12 @@ class PlayerBattingStatistics:
             "R": self.runs,
             "RBI": self.rbi,
             "BB": self.bb,
-            "SO": self.so,
             "AVG": self.avg,
             "OBP": self.obp,
             "SLG": self.slg,
             "OPS": self.ops,
             "ISO": self.iso,
+            "SO": self.so,
         }
 
 
@@ -88,7 +88,7 @@ class TeamBattingStatistics:
         if include_totals and not df_wo_totals.empty:
             totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO"]].sum()
             team_player = PlayerBattingStatistics(
-                "TEAM TOTAL",
+                "TOTAL",
                 ab=int(totals["AB"]),
                 singles=int(totals["1B"]),
                 doubles=int(totals["2B"]),
@@ -294,7 +294,7 @@ def optimize_outfield(assignments):
         player = outfielders.pop(0)
         assignments[pos] = player
     return assignments
-st.set_page_config(layout="wide")
+# st.set_page_config(layout="wide")
 st.title("Freebasers Softball")
 tab_choice = st.selectbox("Select Page", ["Hitting", "Fielding"])
 # tab1, tab2 = st.tabs(["Fielding", "Hitting"])
@@ -382,8 +382,36 @@ if tab_choice == "Hitting":
     df_season, df_season_totals = team.to_dataframe(include_totals=True)
 
     st.subheader("Season Totals")
-    st.dataframe(df_season, use_container_width=True, hide_index=True)
-    st.dataframe(df_season_totals, use_container_width=True, hide_index=True)
+    
+    # Configure column widths for better display
+    column_config = {
+        "Player": st.column_config.TextColumn("Player", width="small"),
+        "AB": st.column_config.NumberColumn("AB", width="small"),
+        "H": st.column_config.NumberColumn("H", width="small"),
+        "HR": st.column_config.NumberColumn("HR", width="small"),
+        "R": st.column_config.NumberColumn("R", width="small"),
+        "RBI": st.column_config.NumberColumn("RBI", width="small"),
+        "BB": st.column_config.NumberColumn("BB", width="small"),
+        "SO": st.column_config.NumberColumn("SO", width="small"),
+        "AVG": st.column_config.NumberColumn("AVG", format="%.3f", width="small"),
+        "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
+        "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
+        "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
+        "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
+    }
+    
+    st.dataframe(
+        df_season.sort_values(by="H", ascending=False), 
+        column_config=column_config,
+        use_container_width=True, 
+        hide_index=True
+    )
+    st.dataframe(
+        df_season_totals, 
+        column_config=column_config,
+        use_container_width=True, 
+        hide_index=True
+    )
 
     # --- Player selection for per-game stats ---
     selected_player = st.selectbox(
@@ -408,7 +436,34 @@ if tab_choice == "Hitting":
         df_player_games["ISO"] = df_player_games["SLG"] - df_player_games["AVG"]
 
         st.subheader(f"{selected_player} - Per Game Stats")
-        st.dataframe(df_player_games, use_container_width=True, hide_index=True)
+        
+        # Configure column widths for per-game stats
+        per_game_column_config = {
+            "Game": st.column_config.NumberColumn("Game", width="small"),
+            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "AB": st.column_config.NumberColumn("AB", width="small"),
+            "H": st.column_config.NumberColumn("H", width="small"),
+            "1B": st.column_config.NumberColumn("1B", width="small"),
+            "2B": st.column_config.NumberColumn("2B", width="small"),
+            "3B": st.column_config.NumberColumn("3B", width="small"),
+            "HR": st.column_config.NumberColumn("HR", width="small"),
+            "R": st.column_config.NumberColumn("R", width="small"),
+            "RBI": st.column_config.NumberColumn("RBI", width="small"),
+            "BB": st.column_config.NumberColumn("BB", width="small"),
+            "SO": st.column_config.NumberColumn("SO", width="small"),
+            "AVG": st.column_config.NumberColumn("AVG", format="%.3f", width="small"),
+            "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
+            "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
+            "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
+            "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
+        }
+        
+        st.dataframe(
+            df_player_games, 
+            column_config=per_game_column_config,
+            use_container_width=True, 
+            hide_index=True
+        )
 
 
 if tab_choice == "Fielding":
