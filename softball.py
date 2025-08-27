@@ -434,6 +434,7 @@ if tab_choice == "Hitting":
         )
         df_player_games["OPS"] = df_player_games["OBP"] + df_player_games["SLG"]
         df_player_games["ISO"] = df_player_games["SLG"] - df_player_games["AVG"]
+        df_player_games = df_player_games.drop('Player', axis=1)
 
         st.subheader(f"{selected_player} - Per Game Stats")
         
