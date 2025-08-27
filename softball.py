@@ -302,54 +302,38 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics):
     Top of the order (1–3): Need high OBP and speed/athleticism — guys who get on base to set the table.
     Middle (3–5): Best power hitters/sluggers — drive runs in.
     Lower/middle (6–8): Consistent contact hitters — keep rallies alive.
-    Bottom (9–10): Weaker hitters, but ideally people who can still get on base and “turn the lineup over” back to the top.
+    Bottom (9–10): Weaker hitters, but ideally people who can still get on base and "turn the lineup over" back to the top.
     '''
+    players = list(stats.players.values())
     lineup = []
-    players = stats.players.values()
-    # sort players by OBP
-    obp_sorted = sorted(players, key=operator.attrgetter('obp'), reverse=True)
-    # take the top 3 OBP players
-    lead_off_candidates = obp_sorted[:3]
-    # now sort by slugging percentage
-    lead_off_candidates_sorted = sorted(lead_off_candidates, key=operator.attrgetter('slg'))
-    # lead off candidate should have the worst of the 3
-    lead_off = lead_off_candidates_sorted[0]
-    lineup.append(lead_off)
-    second_batter = lead_off_candidates_sorted[1]
-    # remaining candidates
-    remaining_candidates = [player for player in players if player not in lineup]
-    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('avg'), reverse=True)
-    # take the top 3 avg players
-    second_candidate = avg_sorted[:3]
-    # now sort by slugging percentage
-    second_candidate_sorted = sorted(second_candidate, key=operator.attrgetter('slg'))
-    # second batter should have the worst of the 3
-    second_batter = second_candidate_sorted[0]
-    lineup.append(second_batter)
-    # remaining candidates
-    remaining_candidates = [player for player in players if player not in lineup]
-    # find those sluggers baby
-    slg_sorted = sorted(remaining_candidates, key=operator.attrgetter('slg'), reverse=True)
-    third_batter = slg_sorted[1]
-    fourth_batter = slg_sorted[0]
-    lineup.append(third_batter)
-    lineup.append(fourth_batter)
-    # remaining candidates
-    remaining_candidates = [player for player in players if player not in lineup]
-    # rest of lineup in order of batting average, except the final batter. Final batter should be able to "turn the lineup over"
-    obp_sorted = sorted(remaining_candidates, key=operator.attrgetter('obp'), reverse=True)
-    last_batter = obp_sorted[0]
-    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('slg'), reverse=True)
-    for player in avg_sorted:
-        if player != last_batter:
-            lineup.append(player)
+    
+    # 1. Leadoff hitter: Top 3 OBP players, then lowest SLG among them
+    top_obp_players = sorted(players, key=operator.attrgetter('obp'), reverse=True)[:3]
+    leadoff_candidates = sorted(top_obp_players, key=operator.attrgetter('slg'))
+    lineup.append(leadoff_candidates[0])  # Lowest SLG among top 3 OBP
+    
+    # 2. Second hitter: Top 3 AVG players (excluding leadoff), then lowest SLG among them
+    remaining_players = [p for p in players if p not in lineup]
+    top_avg_players = sorted(remaining_players, key=operator.attrgetter('avg'), reverse=True)[:3]
+    second_candidates = sorted(top_avg_players, key=operator.attrgetter('slg'))
+    lineup.append(second_candidates[0])  # Lowest SLG among top 3 AVG
+    
+    # 3-4. Third and cleanup hitters: Top 2 SLG players among remaining
+    remaining_players = [p for p in players if p not in lineup]
+    top_slg_players = sorted(remaining_players, key=operator.attrgetter('slg'), reverse=True)
+    lineup.extend([top_slg_players[1], top_slg_players[0]])  # 2nd and 1st SLG
+    
+    # 5-8. Middle order: Remaining players by SLG (excluding last batter)
+    remaining_players = [p for p in players if p not in lineup]
+    last_batter = max(remaining_players, key=operator.attrgetter('obp'))  # Highest OBP for "turnover"
+    middle_order = [p for p in sorted(remaining_players, key=operator.attrgetter('slg'), reverse=True) if p != last_batter]
+    lineup.extend(middle_order)
+    
+    # 9. Last batter: Highest OBP to "turn the lineup over"
     lineup.append(last_batter)
-    lineup_dict = {}
-    for index, item in enumerate(lineup):
-        lineup_dict[index+1] = item
-    df = pd.DataFrame.from_dict(lineup_dict, orient="index", columns=["Player"])
-    df.index.name = "Batting Position"
-    return df
+    
+    # Create DataFrame with proper indexing
+    return pd.DataFrame(lineup, index=range(1, len(lineup) + 1), columns=["Player"]).rename_axis("Batting Position")
 
 def extract_name(x):
     return x.name
