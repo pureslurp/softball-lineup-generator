@@ -1,3 +1,4 @@
+import operator
 import streamlit as st
 import pandas as pd
 
@@ -294,6 +295,141 @@ def optimize_outfield(assignments):
         player = outfielders.pop(0)
         assignments[pos] = player
     return assignments
+
+def calculate_optimal_batting_order(stats: TeamBattingStatistics):
+    '''Given the current hitting stats, return the optimal batting lineup
+    Philosophy:
+    Top of the order (1–3): Need high OBP and speed/athleticism — guys who get on base to set the table.
+    Middle (3–5): Best power hitters/sluggers — drive runs in.
+    Lower/middle (6–8): Consistent contact hitters — keep rallies alive.
+    Bottom (9–10): Weaker hitters, but ideally people who can still get on base and “turn the lineup over” back to the top.
+    '''
+    lineup = []
+    players = stats.players.values()
+    # sort players by OBP
+    obp_sorted = sorted(players, key=operator.attrgetter('obp'), reverse=True)
+    # take the top 3 OBP players
+    lead_off_candidates = obp_sorted[:3]
+    # now sort by slugging percentage
+    lead_off_candidates_sorted = sorted(lead_off_candidates, key=operator.attrgetter('slg'))
+    # lead off candidate should have the worst of the 3
+    lead_off = lead_off_candidates_sorted[0]
+    lineup.append(lead_off)
+    second_batter = lead_off_candidates_sorted[1]
+    # remaining candidates
+    remaining_candidates = [player for player in players if player not in lineup]
+    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('avg'), reverse=True)
+    # take the top 3 avg players
+    second_candidate = avg_sorted[:3]
+    # now sort by slugging percentage
+    second_candidate_sorted = sorted(second_candidate, key=operator.attrgetter('slg'))
+    # second batter should have the worst of the 3
+    second_batter = second_candidate_sorted[0]
+    lineup.append(second_batter)
+    # remaining candidates
+    remaining_candidates = [player for player in players if player not in lineup]
+    # find those sluggers baby
+    slg_sorted = sorted(remaining_candidates, key=operator.attrgetter('slg'), reverse=True)
+    third_batter = slg_sorted[1]
+    fourth_batter = slg_sorted[0]
+    lineup.append(third_batter)
+    lineup.append(fourth_batter)
+    # remaining candidates
+    remaining_candidates = [player for player in players if player not in lineup]
+    # rest of lineup in order of batting average, except the final batter. Final batter should be able to "turn the lineup over"
+    obp_sorted = sorted(remaining_candidates, key=operator.attrgetter('obp'), reverse=True)
+    last_batter = obp_sorted[0]
+    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('avg'), reverse=True)
+    for player in avg_sorted:
+        if player != last_batter:
+            lineup.append(player)
+    lineup.append(last_batter)
+    lineup_dict = {}
+    for index, item in enumerate(lineup):
+        lineup_dict[index+1] = item
+    df = pd.DataFrame.from_dict(lineup_dict, orient="index", columns=["Player"])
+    df.index.name = "Batting Position"
+    return df
+
+def extract_name(x):
+    return x.name
+    
+def display_lineup_rationale(lineup):
+    st.subheader("Lineup Rationale")
+
+    # --- 1. Leadoff Hitter ---
+    player = lineup.iloc[0,0]
+    with st.expander(f"1. {player.name} (Leadoff Hitter)"):
+        st.write(f"""
+        Chosen from the **top 3 players in OBP**, but with the *lowest slugging percentage (SLG)* 
+        among that group. This ensures {player.name} is someone who gets on base often 
+        to start rallies, while leaving the big power bats for later.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
+        """)
+    
+
+    # --- 2. Second Hitter ---
+    player = lineup.iloc[1,0]
+    with st.expander(f"2. {player.name} (Second Hitter)"):
+        st.write(f"""
+        Selected from the **top 3 players in batting average (AVG)** (excluding the leadoff), 
+        and then the one with the *lowest slugging percentage (SLG)* is placed second.  
+        This makes {player.name} a reliable contact hitter who moves runners along, 
+        but doesn’t take away power slots.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
+        """)
+
+    # --- 3. Third Hitter ---
+    player = lineup.iloc[2,0]
+    with st.expander(f"3. {player.name} (Third Hitter)"):
+        st.write(f"""
+        Among the remaining players, sorted by slugging percentage (SLG), 
+        the **second-highest slugger** is chosen for the #3 spot.  
+        {player.name} provides both power and consistency, often batting in the 
+        first inning with runners already on base.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
+        """)
+
+    # --- 4. Cleanup Hitter ---
+    player = lineup.iloc[3,0]
+    with st.expander(f"4. {player.name} (Cleanup Hitter)"):
+        st.write(f"""
+        The **highest slugging percentage (SLG)** among the remaining players 
+        is placed here. {player.name} is the biggest power threat in the lineup, 
+        tasked with driving in the top-of-the-order hitters.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
+        """)
+
+    # --- 5–8. Middle / Lower Order ---
+    with st.expander(f"5–{len(lineup)-1}. Middle / Lower Order"):
+        st.write("""
+        After the first four spots are filled, the rest of the players are ordered 
+        by batting average (AVG). These are consistent contact hitters who can 
+        keep innings alive and set up chances for more runs.
+        """)
+        for i in range(4, len(lineup)-1):
+            player = lineup.iloc[i,0]
+            st.write(f"- **{i+1}. {player.name}** — AVG {player.avg}, OBP {player.obp}, SLG {player.slg}")
+
+    # --- 9. Bottom of the Order ---
+    player = lineup.iloc[-1,0]
+    with st.expander(f"9. {player.name} (Bottom of the Order)"):
+        st.write(f"""
+        The last hitter is intentionally chosen — not just the weakest bat.  
+        From the remaining pool, the player with the **highest OBP** is placed last.  
+        This ensures {player.name} can “turn the lineup over” by getting on base, 
+        giving the top hitters more RBI opportunities.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
+        """)
+
+
+
+
 # st.set_page_config(layout="wide")
 st.title("Freebasers Softball")
 tab_choice = st.selectbox("Select Page", ["Hitting", "Fielding"])
@@ -362,7 +498,7 @@ if tab_choice == "Hitting":
     df_totals = df_games.groupby("Player", as_index=False).sum()
 
     # Build team from totals
-    team = TeamBattingStatistics("Sharks")
+    team = TeamBattingStatistics("Freebasers")
     for _, row in df_totals.iterrows():
         player = PlayerBattingStatistics(
             row["Player"],
@@ -465,6 +601,15 @@ if tab_choice == "Hitting":
             use_container_width=True, 
             hide_index=True
         )
+    
+    st.write("\n\n\n\n\n\n\n")
+
+    st.subheader("Optimal Batting Lineup -- Given Current Stats")
+    df = calculate_optimal_batting_order(team)
+    display_df = df
+    display_df = display_df["Player"].apply(extract_name)
+    st.dataframe(display_df)
+    display_lineup_rationale(df)
 
 
 if tab_choice == "Fielding":
