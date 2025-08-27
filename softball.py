@@ -339,7 +339,7 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics):
     # rest of lineup in order of batting average, except the final batter. Final batter should be able to "turn the lineup over"
     obp_sorted = sorted(remaining_candidates, key=operator.attrgetter('obp'), reverse=True)
     last_batter = obp_sorted[0]
-    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('avg'), reverse=True)
+    avg_sorted = sorted(remaining_candidates, key=operator.attrgetter('slg'), reverse=True)
     for player in avg_sorted:
         if player != last_batter:
             lineup.append(player)
@@ -408,8 +408,8 @@ def display_lineup_rationale(lineup):
     with st.expander(f"5–{len(lineup)-1}. Middle / Lower Order"):
         st.write("""
         After the first four spots are filled, the rest of the players are ordered 
-        by batting average (AVG). These are consistent contact hitters who can 
-        keep innings alive and set up chances for more runs.
+        by slugging percentage (SLG). These are consistent contact hitters who can 
+        keep innings alive, drive in runs, and set up chances for more runs.
         """)
         for i in range(4, len(lineup)-1):
             player = lineup.iloc[i,0]
