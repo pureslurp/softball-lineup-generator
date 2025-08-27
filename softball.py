@@ -401,7 +401,7 @@ if tab_choice == "Hitting":
     }
     
     st.dataframe(
-        df_season.sort_values(by="H", ascending=False), 
+        df_season.sort_values(by="AVG", ascending=False), 
         column_config=column_config,
         use_container_width=True, 
         hide_index=True
