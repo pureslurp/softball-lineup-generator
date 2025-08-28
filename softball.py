@@ -5,7 +5,7 @@ import pandas as pd
 import pandas as pd
 
 class PlayerBattingStatistics:
-    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0):
+    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0):
         self.name = name
         self.ab = ab
         self.runs = runs
@@ -16,6 +16,7 @@ class PlayerBattingStatistics:
         self.rbi = rbi
         self.bb = bb
         self.so = so
+        self.sf = sf
 
     # --- Derived Counts ---
     @property
@@ -36,9 +37,12 @@ class PlayerBattingStatistics:
 
     # --- Advanced Stats ---
     @property
+    def pa(self):
+        return self.ab + self.bb + self.sf
+
+    @property
     def obp(self):
-        pa = self.ab + self.bb
-        return round((self.hits + self.bb) / pa, 3) if pa > 0 else 0.0
+        return round((self.hits + self.bb) / self.pa, 3) if self.pa > 0 else 0.0
 
     @property
     def slg(self):
@@ -71,6 +75,7 @@ class PlayerBattingStatistics:
             "OPS": self.ops,
             "ISO": self.iso,
             "SO": self.so,
+            "SF": self.sf
         }
 
 
@@ -87,7 +92,7 @@ class TeamBattingStatistics:
         
 
         if include_totals and not df_wo_totals.empty:
-            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO"]].sum()
+            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF"]].sum()
             team_player = PlayerBattingStatistics(
                 "TOTAL",
                 ab=int(totals["AB"]),
@@ -99,12 +104,13 @@ class TeamBattingStatistics:
                 runs=int(totals["R"]),
                 bb=int(totals["BB"]),
                 so=int(totals["SO"]),
+                sf=int(totals["SF"])
             )
             totals_row = team_player.to_dict()
             df_totals = pd.DataFrame([totals_row])
             
-        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","AVG", "OBP", "SLG", "OPS", "ISO"]]
-        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","AVG", "OBP", "SLG", "OPS", "ISO"]]
+        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
+        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
         return df_wo_totals, df_totals
 
 
@@ -494,7 +500,8 @@ if tab_choice == "Hitting":
             hr=row["HR"],
             rbi=row["RBI"],
             bb=row["BB"],
-            so=row["SO"]
+            so=row["SO"],
+            sf=row["SF"]
         )
         team.add_player(player)
 
@@ -506,13 +513,14 @@ if tab_choice == "Hitting":
     # Configure column widths for better display
     column_config = {
         "Player": st.column_config.TextColumn("Player", width="small"),
-        "AB": st.column_config.NumberColumn("AB", width="small"),
-        "H": st.column_config.NumberColumn("H", width="small"),
-        "HR": st.column_config.NumberColumn("HR", width="small"),
-        "R": st.column_config.NumberColumn("R", width="small"),
-        "RBI": st.column_config.NumberColumn("RBI", width="small"),
-        "BB": st.column_config.NumberColumn("BB", width="small"),
-        "SO": st.column_config.NumberColumn("SO", width="small"),
+        "AB": st.column_config.NumberColumn("AB", width=50),
+        "H": st.column_config.NumberColumn("H", width=50),
+        "HR": st.column_config.NumberColumn("HR", width=50),
+        "R": st.column_config.NumberColumn("R", width=50),
+        "RBI": st.column_config.NumberColumn("RBI", width=50),
+        "BB": st.column_config.NumberColumn("BB", width=50),
+        "SO": st.column_config.NumberColumn("SO", width=50),
+        "SF": st.column_config.NumberColumn("SF", width=50),
         "AVG": st.column_config.NumberColumn("AVG", format="%.3f", width="small"),
         "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
         "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
