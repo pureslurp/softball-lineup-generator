@@ -403,7 +403,7 @@ def display_lineup_rationale(lineup):
     player = lineup.iloc[-1,0]
     with st.expander(f"9. {player.name} (Bottom of the Order)"):
         st.write(f"""
-        The last hitter is intentionally chosen — not just the weakest bat.  
+        The last hitter is intentionally chosen — not the weakest bat.  
         From the remaining pool, the player with the **highest OBP** is placed last.  
         This ensures {player.name} can “turn the lineup over” by getting on base, 
         giving the top hitters more RBI opportunities.
