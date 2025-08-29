@@ -5,7 +5,7 @@ import pandas as pd
 import pandas as pd
 
 class PlayerBattingStatistics:
-    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0):
+    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0, ab_risp=0, h_risp=0):
         self.name = name
         self.ab = ab
         self.runs = runs
@@ -17,6 +17,8 @@ class PlayerBattingStatistics:
         self.bb = bb
         self.so = so
         self.sf = sf
+        self.ab_risp = ab_risp
+        self.h_risp = h_risp
 
     # --- Derived Counts ---
     @property
@@ -43,6 +45,10 @@ class PlayerBattingStatistics:
     @property
     def obp(self):
         return round((self.hits + self.bb) / self.pa, 3) if self.pa > 0 else 0.0
+
+    @property
+    def ba_risp(self):
+        return round(self.h_risp / self.ab_risp, 3) if self.ab_risp > 0 else 0.0
 
     @property
     def slg(self):
@@ -75,7 +81,10 @@ class PlayerBattingStatistics:
             "OPS": self.ops,
             "ISO": self.iso,
             "SO": self.so,
-            "SF": self.sf
+            "SF": self.sf,
+            "BA_RISP": self.ba_risp,
+            "AB_RISP": self.ab_risp,
+            "H_RISP": self.h_risp
         }
 
 
@@ -92,7 +101,7 @@ class TeamBattingStatistics:
         
 
         if include_totals and not df_wo_totals.empty:
-            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF"]].sum()
+            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF","AB_RISP","H_RISP"]].sum()
             team_player = PlayerBattingStatistics(
                 "TOTAL",
                 ab=int(totals["AB"]),
@@ -104,13 +113,15 @@ class TeamBattingStatistics:
                 runs=int(totals["R"]),
                 bb=int(totals["BB"]),
                 so=int(totals["SO"]),
-                sf=int(totals["SF"])
+                sf=int(totals["SF"]),
+                ab_risp=int(totals["AB_RISP"]),
+                h_risp=int(totals["H_RISP"])
             )
             totals_row = team_player.to_dict()
             df_totals = pd.DataFrame([totals_row])
             
-        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
-        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
+        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
+        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
         return df_wo_totals, df_totals
 
 
@@ -501,7 +512,9 @@ if tab_choice == "Hitting":
             rbi=row["RBI"],
             bb=row["BB"],
             so=row["SO"],
-            sf=row["SF"]
+            sf=row["SF"],
+            ab_risp=row["AB_RISP"],
+            h_risp=row["H_RISP"]
         )
         team.add_player(player)
 
@@ -525,6 +538,7 @@ if tab_choice == "Hitting":
         "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
         "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
         "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
+        "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
         "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
     }
     
@@ -584,6 +598,7 @@ if tab_choice == "Hitting":
             "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
             "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
             "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
+            "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
             "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
         }
         
