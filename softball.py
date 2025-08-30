@@ -48,6 +48,8 @@ class PlayerBattingStatistics:
 
     @property
     def ba_risp(self):
+        if self.h_risp > self.hits:
+            print(f"{self.name} has {self.h_risp} RISP hits but only {self.hits} hits")
         return round(self.h_risp / self.ab_risp, 3) if self.ab_risp > 0 else 0.0
 
     @property
@@ -491,9 +493,11 @@ default_athleticism = {
 
 if tab_choice == "Hitting":
     st.header("Hitting Stats")
+    season = st.selectbox("Select Season", ["Fall2025"])
     
     # Load per-game CSV
     df_games = pd.read_csv("game_stats.csv")
+    df_games = df_games[df_games["Season"] == season]
     
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
