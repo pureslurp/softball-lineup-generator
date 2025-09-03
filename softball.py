@@ -558,6 +558,18 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
+    
+    # Read the original game_stats.csv file for export
+    with open("game_stats.csv", "r") as file:
+        csv_data = file.read()
+    
+    st.download_button(
+        label="📊 Download game_stats.csv",
+        data=csv_data,
+        file_name="game_stats.csv",
+        mime="text/csv",
+        help="Download the complete game statistics data as a CSV file"
+    )
 
     # --- Player selection for per-game stats ---
     selected_player = st.selectbox(
