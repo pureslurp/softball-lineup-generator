@@ -558,7 +558,7 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
-    
+
     # Read the original game_stats.csv file for export
     with open("game_stats.csv", "r") as file:
         csv_data = file.read()
@@ -570,6 +570,73 @@ if tab_choice == "Hitting":
         mime="text/csv",
         help="Download the complete game statistics data as a CSV file"
     )
+    
+    # --- Per Game Totals Section ---
+    st.subheader("Per Game Totals")
+    
+    # Aggregate team stats per game
+    df_game_totals = df_games.groupby("Game", as_index=False).agg({
+        "AB": "sum",
+        "1B": "sum", 
+        "2B": "sum",
+        "3B": "sum",
+        "HR": "sum",
+        "R": "sum",
+        "RBI": "sum",
+        "BB": "sum",
+        "SO": "sum",
+        "SF": "sum",
+        "AB_RISP": "sum",
+        "H_RISP": "sum"
+    }).copy()
+    
+    # Calculate derived stats for each game
+    df_game_totals["H"] = df_game_totals["1B"] + df_game_totals["2B"] + df_game_totals["3B"] + df_game_totals["HR"]
+    df_game_totals["AVG"] = df_game_totals.apply(
+        lambda row: round(row["H"] / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
+    )
+    df_game_totals["OBP"] = df_game_totals.apply(
+        lambda row: round((row["H"] + row["BB"]) / (row["AB"] + row["BB"]), 3) if (row["AB"] + row["BB"]) > 0 else 0.0, axis=1
+    )
+    df_game_totals["SLG"] = df_game_totals.apply(
+        lambda row: round((row["1B"] + 2*row["2B"] + 3*row["3B"] + 4*row["HR"]) / row["AB"], 3) if row["AB"] > 0 else 0.0, axis=1
+    )
+    df_game_totals["OPS"] = df_game_totals["OBP"] + df_game_totals["SLG"]
+    df_game_totals["ISO"] = df_game_totals["SLG"] - df_game_totals["AVG"]
+    df_game_totals["BA_RISP"] = df_game_totals.apply(
+        lambda row: round(row["H_RISP"] / row["AB_RISP"], 3) if row["AB_RISP"] > 0 else 0.0, axis=1
+    )
+    
+    # Reorder columns to match the Season Totals format
+    df_game_totals = df_game_totals[["Game", "AB", "H", "HR", "R", "RBI", "BB", "SO", "SF", "AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
+    
+    # Configure column widths for per-game totals
+    per_game_totals_column_config = {
+        "Game": st.column_config.NumberColumn("Game #", width="small"),
+        "AB": st.column_config.NumberColumn("AB", width=50),
+        "H": st.column_config.NumberColumn("H", width=50),
+        "HR": st.column_config.NumberColumn("HR", width=50),
+        "R": st.column_config.NumberColumn("R", width=50),
+        "RBI": st.column_config.NumberColumn("RBI", width=50),
+        "BB": st.column_config.NumberColumn("BB", width=50),
+        "SO": st.column_config.NumberColumn("SO", width=50),
+        "SF": st.column_config.NumberColumn("SF", width=50),
+        "AVG": st.column_config.NumberColumn("AVG", format="%.3f", width="small"),
+        "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
+        "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
+        "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
+        "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
+        "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
+    }
+    
+    st.dataframe(
+        df_game_totals, 
+        column_config=per_game_totals_column_config,
+        use_container_width=True, 
+        hide_index=True
+    )
+    
+    st.subheader("Player Per Game Stats")
 
     # --- Player selection for per-game stats ---
     selected_player = st.selectbox(
@@ -594,7 +661,7 @@ if tab_choice == "Hitting":
         df_player_games["ISO"] = df_player_games["SLG"] - df_player_games["AVG"]
         df_player_games = df_player_games.drop('Player', axis=1)
 
-        st.subheader(f"{selected_player} - Per Game Stats")
+        
         
         # Configure column widths for per-game stats
         per_game_column_config = {
