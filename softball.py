@@ -315,7 +315,7 @@ def optimize_outfield(assignments):
         assignments[pos] = player
     return assignments
 
-def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str]):
+def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str] = [""]):
     '''Given the current hitting stats, return the optimal batting lineup
     Philosophy:
     Top of the order (1–3): Need high OBP and speed/athleticism — guys who get on base to set the table.
