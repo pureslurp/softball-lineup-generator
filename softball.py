@@ -359,6 +359,15 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str
 
 def extract_name(x):
     return x.name
+
+def find_fire_ice(df_games):
+    # only get last 3 games of stats
+    max_game = max(df_games['Game'])
+    df_games_l3 = df_games[df_games["Game"] > max_game - 2]
+    print(df_games_l3)
+    players = df_games['Player'].unique()
+    # for player in players:
+
     
 def display_lineup_rationale(lineup):
     st.subheader("Lineup Rationale")
@@ -501,6 +510,20 @@ if tab_choice == "Hitting":
     # Load per-game CSV
     df_games = pd.read_csv("game_stats.csv")
     df_games = df_games[df_games["Season"] == season]
+    df_game_totals = df_games.groupby("Game", as_index=False).agg({
+        "AB": "sum",
+        "1B": "sum", 
+        "2B": "sum",
+        "3B": "sum",
+        "HR": "sum",
+        "R": "sum",
+        "RBI": "sum",
+        "BB": "sum",
+        "SO": "sum",
+        "SF": "sum",
+        "AB_RISP": "sum",
+        "H_RISP": "sum"
+    }).copy()
     
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
@@ -527,6 +550,7 @@ if tab_choice == "Hitting":
 
     # Convert to DataFrame (ready for Streamlit)
     df_season, df_season_totals = team.to_dataframe(include_totals=True)
+    find_fire_ice(df_games)
 
     st.subheader("Season Totals")
     
@@ -575,23 +599,7 @@ if tab_choice == "Hitting":
     )
     
     # --- Per Game Totals Section ---
-    st.subheader("Per Game Totals")
-    
-    # Aggregate team stats per game
-    df_game_totals = df_games.groupby("Game", as_index=False).agg({
-        "AB": "sum",
-        "1B": "sum", 
-        "2B": "sum",
-        "3B": "sum",
-        "HR": "sum",
-        "R": "sum",
-        "RBI": "sum",
-        "BB": "sum",
-        "SO": "sum",
-        "SF": "sum",
-        "AB_RISP": "sum",
-        "H_RISP": "sum"
-    }).copy()
+    st.subheader("Per Game Totals")    
     
     # Calculate derived stats for each game
     df_game_totals["H"] = df_game_totals["1B"] + df_game_totals["2B"] + df_game_totals["3B"] + df_game_totals["HR"]
