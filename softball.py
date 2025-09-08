@@ -140,7 +140,7 @@ class TeamBattingStatistics:
     @property
     def get_ice(self):
         players = list(self.players.values())
-        players.sort(key=operator.attrgetter('ops'), reverse=True)
+        players.sort(key=operator.attrgetter('ops'), reverse=False)
         ice = []
         for player in players:
             if player.ops < 1.0 and len(ice) < 3:
@@ -384,12 +384,14 @@ def extract_name(x):
 def find_fire_ice(df_games):
         # only get last 3 games of stats
         max_game = max(df_games['Game'])
+        # remove players with 0 AB
+        df_games = df_games[df_games["AB"] > 0]
         df_games_l3 = df_games[df_games["Game"] > max_game - 3]
         df_games_l3_totals = df_games_l3.groupby("Player", as_index=False).sum()
         team_l3 = TeamBattingStatistics("Freebasers L3")
         for _, row in df_games_l3_totals.iterrows():
             player = PlayerBattingStatistics(
-                row["Player"],
+                row["Player"].strip(),
                 ab=row["AB"],
                 runs=row["R"],
                 singles=row["1B"],
@@ -585,7 +587,7 @@ if tab_choice == "Hitting":
     team = TeamBattingStatistics("Freebasers")
     for _, row in df_totals.iterrows():
         player = PlayerBattingStatistics(
-            row["Player"],
+            row["Player"].strip(),
             ab=row["AB"],
             runs=row["R"],
             singles=row["1B"],
@@ -610,7 +612,7 @@ if tab_choice == "Hitting":
     
     # Configure column widths for better display
     column_config = {
-        "Player": st.column_config.TextColumn("Player", width="small"),
+        "Player": st.column_config.TextColumn("Player", width=90),
         "AB": st.column_config.NumberColumn("AB", width=50),
         "H": st.column_config.NumberColumn("H", width=50),
         "HR": st.column_config.NumberColumn("HR", width=50),
