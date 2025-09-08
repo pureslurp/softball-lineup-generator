@@ -125,6 +125,20 @@ class TeamBattingStatistics:
         df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
         df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
         return df_wo_totals, df_totals
+    
+    def get_fire(self):
+        fire = []
+        for player in self.players.values():
+            if player.ops > 1.5:
+                fire.append(player)
+        return fire
+
+    def get_ice(self):
+        ice = []
+        for player in self.players.values():
+            if player.ops < 1.0:
+                ice.append(player)
+        return ice
 
 
 
@@ -359,6 +373,47 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str
 
 def extract_name(x):
     return x.name
+
+def find_fire_ice(df_games):
+        # only get last 3 games of stats
+        max_game = max(df_games['Game'])
+        df_games_l3 = df_games[df_games["Game"] > max_game - 3]
+        df_games_l3_totals = df_games_l3.groupby("Player", as_index=False).sum()
+        team_l3 = TeamBattingStatistics("Freebasers L3")
+        for _, row in df_games_l3_totals.iterrows():
+            player = PlayerBattingStatistics(
+                row["Player"],
+                ab=row["AB"],
+                runs=row["R"],
+                singles=row["1B"],
+                doubles=row["2B"],
+                triples=row["3B"],
+                hr=row["HR"],
+                rbi=row["RBI"],
+                bb=row["BB"],
+                so=row["SO"],
+                sf=row["SF"],
+                ab_risp=row["AB_RISP"],
+                h_risp=row["H_RISP"]
+            )
+            team_l3.add_player(player)
+        
+        fire = team_l3.get_fire()
+        ice = team_l3.get_ice()
+
+        return fire, ice
+
+def add_fire_ice(x, fire, ice):
+    # add fire and ice symbols to names
+    fire_names = [f.name for f in fire]
+    ice_names = [i.name for i in ice]
+
+    if x in fire_names:
+        return f"{x}🔥"
+    elif x in ice_names:
+        return f"{x}❄️"
+    else:
+        return x
     
 def display_lineup_rationale(lineup):
     st.subheader("Lineup Rationale")
@@ -501,6 +556,20 @@ if tab_choice == "Hitting":
     # Load per-game CSV
     df_games = pd.read_csv("game_stats.csv")
     df_games = df_games[df_games["Season"] == season]
+    df_game_totals = df_games.groupby("Game", as_index=False).agg({
+        "AB": "sum",
+        "1B": "sum", 
+        "2B": "sum",
+        "3B": "sum",
+        "HR": "sum",
+        "R": "sum",
+        "RBI": "sum",
+        "BB": "sum",
+        "SO": "sum",
+        "SF": "sum",
+        "AB_RISP": "sum",
+        "H_RISP": "sum"
+    }).copy()
     
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
@@ -527,6 +596,8 @@ if tab_choice == "Hitting":
 
     # Convert to DataFrame (ready for Streamlit)
     df_season, df_season_totals = team.to_dataframe(include_totals=True)
+    fire, ice = find_fire_ice(df_games)
+    df_season['Player'] = df_season['Player'].apply(lambda x: add_fire_ice(x, fire, ice))
 
     st.subheader("Season Totals")
     
@@ -561,6 +632,7 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
+    st.caption('Last 3 Games: 🔥 = OPS > 1.5, ❄️ = OPS < 1.0 ')
 
     # Read the original game_stats.csv file for export
     with open("game_stats.csv", "r") as file:
@@ -575,23 +647,7 @@ if tab_choice == "Hitting":
     )
     
     # --- Per Game Totals Section ---
-    st.subheader("Per Game Totals")
-    
-    # Aggregate team stats per game
-    df_game_totals = df_games.groupby("Game", as_index=False).agg({
-        "AB": "sum",
-        "1B": "sum", 
-        "2B": "sum",
-        "3B": "sum",
-        "HR": "sum",
-        "R": "sum",
-        "RBI": "sum",
-        "BB": "sum",
-        "SO": "sum",
-        "SF": "sum",
-        "AB_RISP": "sum",
-        "H_RISP": "sum"
-    }).copy()
+    st.subheader("Per Game Totals")    
     
     # Calculate derived stats for each game
     df_game_totals["H"] = df_game_totals["1B"] + df_game_totals["2B"] + df_game_totals["3B"] + df_game_totals["HR"]
