@@ -126,17 +126,24 @@ class TeamBattingStatistics:
         df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
         return df_wo_totals, df_totals
     
+    @property
     def get_fire(self):
+        # sort players by ops
+        players = list(self.players.values())
+        players.sort(key=operator.attrgetter('ops'), reverse=True)
         fire = []
-        for player in self.players.values():
-            if player.ops > 1.5:
+        for player in players:
+            if player.ops > 1.5 and len(fire) < 3:
                 fire.append(player)
         return fire
 
+    @property
     def get_ice(self):
+        players = list(self.players.values())
+        players.sort(key=operator.attrgetter('ops'), reverse=True)
         ice = []
-        for player in self.players.values():
-            if player.ops < 1.0:
+        for player in players:
+            if player.ops < 1.0 and len(ice) < 3:
                 ice.append(player)
         return ice
 
@@ -398,8 +405,8 @@ def find_fire_ice(df_games):
             )
             team_l3.add_player(player)
         
-        fire = team_l3.get_fire()
-        ice = team_l3.get_ice()
+        fire = team_l3.get_fire
+        ice = team_l3.get_ice
 
         return fire, ice
 
@@ -632,7 +639,7 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
-    st.caption('Last 3 Games: 🔥 = OPS > 1.5, ❄️ = OPS < 1.0 ')
+    st.caption('Last 3 Games: 🔥 = OPS > 1.5, ❄️ = OPS < 1.0, max 3 per category')
 
     # Read the original game_stats.csv file for export
     with open("game_stats.csv", "r") as file:
