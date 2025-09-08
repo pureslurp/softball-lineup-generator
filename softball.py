@@ -315,7 +315,7 @@ def optimize_outfield(assignments):
         assignments[pos] = player
     return assignments
 
-def calculate_optimal_batting_order(stats: TeamBattingStatistics):
+def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str]):
     '''Given the current hitting stats, return the optimal batting lineup
     Philosophy:
     Top of the order (1–3): Need high OBP and speed/athleticism — guys who get on base to set the table.
@@ -324,6 +324,9 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics):
     Bottom (9–10): Weaker hitters, but ideally people who can still get on base and "turn the lineup over" back to the top.
     '''
     players = list(stats.players.values())
+    for player in players:
+        if player.name.strip() in omit:
+            players.remove(player)
     lineup = []
     
     # 1. Leadoff hitter: Top 3 OBP players, then lowest SLG among them
