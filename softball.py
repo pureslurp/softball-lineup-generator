@@ -43,7 +43,10 @@ class PlayerBattingStatistics:
     @property
     def obp(self):
         return round((self.hits + self.bb) / self.pa, 3) if self.pa > 0 else 0.0
-
+    
+    @property
+    def obp_slg_2(self):
+        return self.obp + (self.slg / 2)
 
     @property
     def slg(self):
@@ -122,7 +125,7 @@ class TeamBattingStatistics:
         players.sort(key=operator.attrgetter('ops'), reverse=True)
         fire = []
         for player in players:
-            if player.ops > 1.5 and len(fire) < 3:
+            if player.obp_slg_2 > 1.2 and len(fire) < 3:
                 fire.append(player)
         return fire
 
@@ -132,7 +135,7 @@ class TeamBattingStatistics:
         players.sort(key=operator.attrgetter('ops'), reverse=False)
         ice = []
         for player in players:
-            if player.ops < 1.0 and len(ice) < 3:
+            if player.obp_slg_2 < 0.75 and len(ice) < 3:
                 ice.append(player)
         return ice
 
@@ -338,29 +341,24 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str
     players = [p for p in players if p.ab >= 5 and p.name.strip() not in omit]
     lineup = []
     
-    # 1. Leadoff hitter: Top 3 OBP players, then lowest SLG among them
-    top_obp_players = sorted(players, key=operator.attrgetter('obp'), reverse=True)[:3]
+    # 1. Leadoff hitter: Top 4 OBP players, then lowest SLG among them. Second hitter next lowest SLG.
+    top_obp_players = sorted(players, key=operator.attrgetter('obp'), reverse=True)[:4]
     leadoff_candidates = sorted(top_obp_players, key=operator.attrgetter('slg'))
-    lineup.append(leadoff_candidates[0])  # Lowest SLG among top 3 OBP
+    lineup.append(leadoff_candidates[0])  # Lowest SLG among top 4 OBP
+    lineup.append(leadoff_candidates[1])  # Second lowest SLG among top 4 OBP
     
-    # 2. Second hitter: Top 3 AVG players (excluding leadoff), then lowest SLG among them
-    remaining_players = [p for p in players if p not in lineup]
-    top_avg_players = sorted(remaining_players, key=operator.attrgetter('avg'), reverse=True)[:3]
-    second_candidates = sorted(top_avg_players, key=operator.attrgetter('slg'))
-    lineup.append(second_candidates[0])  # Lowest SLG among top 3 AVG
-    
-    # 3-4. Third and cleanup hitters: Top 2 SLG players among remaining
+    # 3-5. Third, fourth are cleanup hitters: Top 2 SLG players among remaining. Fifth is highest remaining SLG
     remaining_players = [p for p in players if p not in lineup]
     top_slg_players = sorted(remaining_players, key=operator.attrgetter('slg'), reverse=True)
-    lineup.extend([top_slg_players[1], top_slg_players[0]])  # 2nd and 1st SLG
+    lineup.extend([top_slg_players[1], top_slg_players[0], top_slg_players[2]])  # 2nd and 1st SLG
     
-    # 5-8. Middle order: Remaining players by SLG (excluding last batter)
+    # 6-X. Middle order: Remaining players by SLG (excluding last batter)
     remaining_players = [p for p in players if p not in lineup]
     last_batter = max(remaining_players, key=operator.attrgetter('obp'))  # Highest OBP for "turnover"
     middle_order = [p for p in sorted(remaining_players, key=operator.attrgetter('slg'), reverse=True) if p != last_batter]
     lineup.extend(middle_order)
     
-    # 9. Last batter: Highest OBP to "turn the lineup over"
+    # Last. Last batter: Highest OBP to "turn the lineup over"
     lineup.append(last_batter)
     
     # Create DataFrame with proper indexing
@@ -418,7 +416,7 @@ def display_lineup_rationale(lineup):
     player = lineup.iloc[0,0]
     with st.expander(f"1. {player.name} (Leadoff Hitter)"):
         st.write(f"""
-        Chosen from the **top 3 players in OBP**, but with the *lowest slugging percentage (SLG)* 
+        Chosen from the **top 4 players in OBP**, but with the *lowest slugging percentage (SLG)* 
         among that group. This ensures {player.name} is someone who gets on base often 
         to start rallies, while leaving the big power bats for later.
         
@@ -430,10 +428,10 @@ def display_lineup_rationale(lineup):
     player = lineup.iloc[1,0]
     with st.expander(f"2. {player.name} (Second Hitter)"):
         st.write(f"""
-        Selected from the **top 3 players in batting average (AVG)** (excluding the leadoff), 
-        and then the one with the *lowest slugging percentage (SLG)* is placed second.  
-        This makes {player.name} a reliable contact hitter who moves runners along, 
-        but doesn’t take away power slots.
+        Selected from the **top 4 players in OBP** (same pool as leadoff), 
+        and then the one with the *second-lowest slugging percentage (SLG)* is placed second.  
+        This makes {player.name} another reliable contact hitter who moves runners along, 
+        but doesn't take away power slots.
         
         **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
         """)
@@ -461,24 +459,36 @@ def display_lineup_rationale(lineup):
         **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
         """)
 
-    # --- 5–8. Middle / Lower Order ---
-    with st.expander(f"5–{len(lineup)-1}. Middle / Lower Order"):
-        st.write("""
-        After the first four spots are filled, the rest of the players are ordered 
-        by slugging percentage (SLG). These are consistent contact hitters who can 
-        keep innings alive, drive in runs, and set up chances for more runs.
+    # --- 5. Fifth Hitter ---
+    player = lineup.iloc[4,0]
+    with st.expander(f"5. {player.name} (Fifth Hitter)"):
+        st.write(f"""
+        The **third-highest slugging percentage (SLG)** among the remaining players 
+        is placed here. {player.name} provides additional power in the middle of the order, 
+        helping to drive in runs and keep rallies alive.
+        
+        **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
         """)
-        for i in range(4, len(lineup)-1):
-            player = lineup.iloc[i,0]
-            st.write(f"- **{i+1}. {player.name}** — AVG {player.avg}, OBP {player.obp}, SLG {player.slg}")
 
-    # --- 9. Bottom of the Order ---
+    # --- 6-X. Middle / Lower Order ---
+    if len(lineup) > 6:
+        with st.expander(f"6–{len(lineup)-1}. Middle / Lower Order"):
+            st.write("""
+            After the first five spots are filled, the rest of the players are ordered 
+            by slugging percentage (SLG). These are consistent contact hitters who can 
+            keep innings alive, drive in runs, and set up chances for more runs.
+            """)
+            for i in range(5, len(lineup)-1):
+                player = lineup.iloc[i,0]
+                st.write(f"- **{i+1}. {player.name}** — AVG {player.avg}, OBP {player.obp}, SLG {player.slg}")
+
+    # --- Last. Bottom of the Order ---
     player = lineup.iloc[-1,0]
-    with st.expander(f"9. {player.name} (Bottom of the Order)"):
+    with st.expander(f"{len(lineup)}. {player.name} (Bottom of the Order)"):
         st.write(f"""
         The last hitter is intentionally chosen — not the weakest bat.  
         From the remaining pool, the player with the **highest OBP** is placed last.  
-        This ensures {player.name} can “turn the lineup over” by getting on base, 
+        This ensures {player.name} can "turn the lineup over" by getting on base, 
         giving the top hitters more RBI opportunities.
         
         **Stats:** AVG {player.avg}, OBP {player.obp}, SLG {player.slg}
@@ -626,7 +636,7 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
-    st.caption('Last 3 Games: 🔥 = OPS > 1.5, ❄️ = OPS < 1.0, max 3 per category')
+    st.caption('Last 3 Games: 🔥 = OBP + (SLG/2) > 1.20, ❄️ = OBP + (SLG/2) < 0.75, max 3 per category')
 
     # Read the original game_stats.csv file for export
     with open("game_stats.csv", "r") as file:
