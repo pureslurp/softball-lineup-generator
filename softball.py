@@ -5,7 +5,7 @@ import pandas as pd
 import pandas as pd
 
 class PlayerBattingStatistics:
-    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0, ab_risp=0, h_risp=0):
+    def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0):
         self.name = name
         self.ab = ab
         self.runs = runs
@@ -17,8 +17,6 @@ class PlayerBattingStatistics:
         self.bb = bb
         self.so = so
         self.sf = sf
-        self.ab_risp = ab_risp
-        self.h_risp = h_risp
 
     # --- Derived Counts ---
     @property
@@ -46,11 +44,6 @@ class PlayerBattingStatistics:
     def obp(self):
         return round((self.hits + self.bb) / self.pa, 3) if self.pa > 0 else 0.0
 
-    @property
-    def ba_risp(self):
-        if self.h_risp > self.hits:
-            print(f"{self.name} has {self.h_risp} RISP hits but only {self.hits} hits")
-        return round(self.h_risp / self.ab_risp, 3) if self.ab_risp > 0 else 0.0
 
     @property
     def slg(self):
@@ -84,9 +77,6 @@ class PlayerBattingStatistics:
             "ISO": self.iso,
             "SO": self.so,
             "SF": self.sf,
-            "BA_RISP": self.ba_risp,
-            "AB_RISP": self.ab_risp,
-            "H_RISP": self.h_risp
         }
 
 
@@ -103,7 +93,7 @@ class TeamBattingStatistics:
         
 
         if include_totals and not df_wo_totals.empty:
-            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF","AB_RISP","H_RISP"]].sum()
+            totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF"]].sum()
             team_player = PlayerBattingStatistics(
                 "TOTAL",
                 ab=int(totals["AB"]),
@@ -116,20 +106,19 @@ class TeamBattingStatistics:
                 bb=int(totals["BB"]),
                 so=int(totals["SO"]),
                 sf=int(totals["SF"]),
-                ab_risp=int(totals["AB_RISP"]),
-                h_risp=int(totals["H_RISP"])
             )
             totals_row = team_player.to_dict()
             df_totals = pd.DataFrame([totals_row])
             
-        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
-        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
+        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "ISO"]]
+        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
         return df_wo_totals, df_totals
     
     @property
     def get_fire(self):
         # sort players by ops
         players = list(self.players.values())
+        players = [p for p in players if p.ab >= 5]
         players.sort(key=operator.attrgetter('ops'), reverse=True)
         fire = []
         for player in players:
@@ -345,9 +334,8 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str
     Bottom (9–10): Weaker hitters, but ideally people who can still get on base and "turn the lineup over" back to the top.
     '''
     players = list(stats.players.values())
-    for player in players:
-        if player.name.strip() in omit:
-            players.remove(player)
+    # Filter out players with less than 5 ABs and omitted players
+    players = [p for p in players if p.ab >= 5 and p.name.strip() not in omit]
     lineup = []
     
     # 1. Leadoff hitter: Top 3 OBP players, then lowest SLG among them
@@ -390,22 +378,21 @@ def find_fire_ice(df_games):
         df_games_l3_totals = df_games_l3.groupby("Player", as_index=False).sum()
         team_l3 = TeamBattingStatistics("Freebasers L3")
         for _, row in df_games_l3_totals.iterrows():
-            player = PlayerBattingStatistics(
-                row["Player"].strip(),
-                ab=row["AB"],
-                runs=row["R"],
-                singles=row["1B"],
-                doubles=row["2B"],
-                triples=row["3B"],
-                hr=row["HR"],
-                rbi=row["RBI"],
-                bb=row["BB"],
-                so=row["SO"],
-                sf=row["SF"],
-                ab_risp=row["AB_RISP"],
-                h_risp=row["H_RISP"]
-            )
-            team_l3.add_player(player)
+            if row["AB"] >= 5:  # Only include players with 5 or more at-bats
+                player = PlayerBattingStatistics(
+                    row["Player"].strip(),
+                    ab=row["AB"],
+                    runs=row["R"],
+                    singles=row["1B"],
+                    doubles=row["2B"],
+                    triples=row["3B"],
+                    hr=row["HR"],
+                    rbi=row["RBI"],
+                    bb=row["BB"],
+                    so=row["SO"],
+                    sf=row["SF"],
+                )
+                team_l3.add_player(player)
         
         fire = team_l3.get_fire
         ice = team_l3.get_ice
@@ -576,32 +563,29 @@ if tab_choice == "Hitting":
         "BB": "sum",
         "SO": "sum",
         "SF": "sum",
-        "AB_RISP": "sum",
-        "H_RISP": "sum"
     }).copy()
     
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
 
-    # Build team from totals
+    # Build team from totals (only players with 5+ ABs)
     team = TeamBattingStatistics("Freebasers")
     for _, row in df_totals.iterrows():
-        player = PlayerBattingStatistics(
-            row["Player"].strip(),
-            ab=row["AB"],
-            runs=row["R"],
-            singles=row["1B"],
-            doubles=row["2B"],
-            triples=row["3B"],
-            hr=row["HR"],
-            rbi=row["RBI"],
-            bb=row["BB"],
-            so=row["SO"],
-            sf=row["SF"],
-            ab_risp=row["AB_RISP"],
-            h_risp=row["H_RISP"]
-        )
-        team.add_player(player)
+        if row["AB"] >= 5:  # Only include players with 5 or more at-bats
+            player = PlayerBattingStatistics(
+                row["Player"].strip(),
+                ab=row["AB"],
+                runs=row["R"],
+                singles=row["1B"],
+                doubles=row["2B"],
+                triples=row["3B"],
+                hr=row["HR"],
+                rbi=row["RBI"],
+                bb=row["BB"],
+                so=row["SO"],
+                sf=row["SF"],
+            )
+            team.add_player(player)
 
     # Convert to DataFrame (ready for Streamlit)
     df_season, df_season_totals = team.to_dataframe(include_totals=True)
@@ -625,12 +609,13 @@ if tab_choice == "Hitting":
         "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
         "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
         "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
-        "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
         "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
     }
     
+    # Filter dataframe to only show players with 5+ ABs
+    df_season_filtered = df_season[df_season["AB"] >= 5]
     st.dataframe(
-        df_season.sort_values(by="AVG", ascending=False), 
+        df_season_filtered.sort_values(by="AVG", ascending=False), 
         column_config=column_config,
         use_container_width=True, 
         hide_index=True
@@ -671,12 +656,9 @@ if tab_choice == "Hitting":
     )
     df_game_totals["OPS"] = df_game_totals["OBP"] + df_game_totals["SLG"]
     df_game_totals["ISO"] = df_game_totals["SLG"] - df_game_totals["AVG"]
-    df_game_totals["BA_RISP"] = df_game_totals.apply(
-        lambda row: round(row["H_RISP"] / row["AB_RISP"], 3) if row["AB_RISP"] > 0 else 0.0, axis=1
-    )
     
     # Reorder columns to match the Season Totals format
-    df_game_totals = df_game_totals[["Game", "AB", "H", "HR", "R", "RBI", "BB", "SO", "SF", "AVG", "OBP", "SLG", "OPS", "BA_RISP", "ISO"]]
+    df_game_totals = df_game_totals[["Game", "AB", "H", "HR", "R", "RBI", "BB", "SO", "SF", "AVG", "OBP", "SLG", "OPS", "ISO"]]
     
     # Configure column widths for per-game totals
     per_game_totals_column_config = {
@@ -693,7 +675,6 @@ if tab_choice == "Hitting":
         "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
         "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
         "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
-        "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
         "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
     }
     
@@ -749,7 +730,6 @@ if tab_choice == "Hitting":
             "OBP": st.column_config.NumberColumn("OBP", format="%.3f", width="small"),
             "SLG": st.column_config.NumberColumn("SLG", format="%.3f", width="small"),
             "OPS": st.column_config.NumberColumn("OPS", format="%.3f", width="small"),
-            "BA_RISP": st.column_config.NumberColumn("BA_RISP", format="%.3f", width="small"),
             "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
         }
         
