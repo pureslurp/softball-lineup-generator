@@ -125,7 +125,8 @@ class TeamBattingStatistics:
         players.sort(key=operator.attrgetter('ops'), reverse=True)
         fire = []
         for player in players:
-            if player.obp_slg_2 > 1.2 and len(fire) < 3:
+            if player.obp_slg_2 > 1.15 and len(fire) < 3:
+                
                 fire.append(player)
         return fire
 
@@ -636,7 +637,7 @@ if tab_choice == "Hitting":
         use_container_width=True, 
         hide_index=True
     )
-    st.caption('Last 3 Games: 🔥 = OBP + (SLG/2) > 1.20, ❄️ = OBP + (SLG/2) < 0.75, max 3 per category')
+    st.caption('Last 3 Games: 🔥 = OBP + (SLG/2) > 1.15, ❄️ = OBP + (SLG/2) < 0.75, max 3 per category')
 
     # Read the original game_stats.csv file for export
     with open("game_stats.csv", "r") as file:
