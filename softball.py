@@ -626,7 +626,7 @@ if tab_choice == "Hitting":
     # Filter dataframe to only show players with 5+ ABs
     df_season_filtered = df_season[df_season["AB"] >= 5]
     st.dataframe(
-        df_season_filtered.sort_values(by="AVG", ascending=False), 
+        df_season_filtered.sort_values(by="H", ascending=False), 
         column_config=column_config,
         use_container_width=True, 
         hide_index=True
