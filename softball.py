@@ -92,10 +92,13 @@ class TeamBattingStatistics:
         self.players[player.name] = player
 
     def to_dataframe(self, include_totals=False):
+        cols = ["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "ISO"]
         df_wo_totals = pd.DataFrame([p.to_dict() for p in self.players.values()])
-        
+        if df_wo_totals.empty:
+            empty = pd.DataFrame(columns=cols)
+            return empty, empty
 
-        if include_totals and not df_wo_totals.empty:
+        if include_totals:
             totals = df_wo_totals[["AB","H","1B","2B","3B","HR","R","RBI","BB","SO","SF"]].sum()
             team_player = PlayerBattingStatistics(
                 "TOTAL",
@@ -113,8 +116,8 @@ class TeamBattingStatistics:
             totals_row = team_player.to_dict()
             df_totals = pd.DataFrame([totals_row])
             
-        df_wo_totals = df_wo_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG","OBP", "SLG", "OPS", "ISO"]]
-        df_totals = df_totals[["Player","AB","H","HR","R","RBI","BB","SO","SF","AVG", "OBP", "SLG", "OPS", "ISO"]]
+        df_wo_totals = df_wo_totals[cols]
+        df_totals = df_totals[cols]
         return df_wo_totals, df_totals
     
     @property
@@ -502,8 +505,8 @@ def display_lineup_rationale(lineup):
 st.title("Freebasers Softball")
 tab_choice = st.selectbox("Select Page", ["Hitting", "Fielding"])
 # tab1, tab2 = st.tabs(["Fielding", "Hitting"])
-# Original team data
-players_info = {
+
+shared_roster = {
     "Kevo": {"prefs": ["SS"]},
     "Werth": {"prefs": [], "no": ["P", "3B"]},
     "JD": {"prefs": ["3B", "SS"]},
@@ -513,9 +516,21 @@ players_info = {
     "Dave": {"prefs": []},
     "KBoe": {"prefs": [], "no": ["2B", "SS", "3B"]},
     "Stross": {"prefs": ["2B", "SS", "OF"], "no": ["P"]},
-    "Damion": {"prefs": ["1B"], "no": ["P", "3B", "SS", "2B", "OF", "C"]},
     "Uncle Rich": {"prefs": ["P"]},
-    "JG": {"prefs": ["P","OF"]},
+}
+
+players_by_season = {
+    "Fall2025": {
+        **shared_roster,
+        "Damion": {"prefs": ["1B"], "no": ["P", "3B", "SS", "2B", "OF", "C"]},
+        "JG": {"prefs": ["P", "OF"]},
+    },
+    "Fall2026": {
+        **shared_roster,
+        "Roy": {"prefs": []},
+        "Kody": {"prefs": []},
+        "Ed": {"prefs": []},
+    },
 }
 
 infield_positions = ["P", "C", "1B", "2B", "SS", "3B"]
@@ -541,28 +556,46 @@ infield_importance = {
     "3B": 5,
 }
 
-default_athleticism = {
+shared_athleticism = {
     "Balavich": 10,
     "JD": 9,
     "KBoe": 6,
     "Raymor": 4,
     "Kevo": 6,
     "Stross": 7,
-    "Damion": 6,
     "Uncle Rich": 3,
     "Dave": 4,
     "Werth": 8,
     "Andrew": 2,
-    "JG": 1,
 }
+
+athleticism_by_season = {
+    "Fall2025": {
+        **shared_athleticism,
+        "Damion": 6,
+        "JG": 1,
+    },
+    "Fall2026": {
+        **shared_athleticism,
+        "Roy": 5,
+        "Kody": 5,
+        "Ed": 5,
+    },
+}
+
+season = st.selectbox("Select Season", ["Fall2026", "Fall2025"])
+players_info = players_by_season[season]
+default_athleticism = athleticism_by_season[season]
 
 if tab_choice == "Hitting":
     st.header("Hitting Stats")
-    season = st.selectbox("Select Season", ["Fall2025"])
     
     # Load per-game CSV
     df_games = pd.read_csv("game_stats.csv")
     df_games = df_games[df_games["Season"] == season]
+    if df_games.empty or df_games["AB"].sum() == 0:
+        st.info("No hitting stats entered for this season yet.")
+        st.stop()
     df_game_totals = df_games.groupby("Game", as_index=False).agg({
         "AB": "sum",
         "1B": "sum", 
@@ -754,11 +787,14 @@ if tab_choice == "Hitting":
     st.write("\n\n\n\n\n\n\n")
 
     st.subheader("Optimal Batting Lineup -- Given Current Stats")
-    df = calculate_optimal_batting_order(team)
-    display_df = df
-    display_df = display_df["Player"].apply(extract_name)
-    st.dataframe(display_df)
-    display_lineup_rationale(df)
+    if len(team.players) < 6:
+        st.info("Batting order appears after at least 6 players have 5+ at-bats.")
+    else:
+        df = calculate_optimal_batting_order(team)
+        display_df = df
+        display_df = display_df["Player"].apply(extract_name)
+        st.dataframe(display_df)
+        display_lineup_rationale(df)
 
 
 if tab_choice == "Fielding":
