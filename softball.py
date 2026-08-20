@@ -592,6 +592,7 @@ if tab_choice == "Hitting":
     
     # Load per-game CSV
     df_games = pd.read_csv("game_stats.csv")
+    df_games["Player"] = df_games["Player"].astype(str).str.strip()
     df_games = df_games[df_games["Season"] == season]
     if df_games.empty or df_games["AB"].sum() == 0:
         st.info("No hitting stats entered for this season yet.")
@@ -612,24 +613,27 @@ if tab_choice == "Hitting":
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
 
-    # Build team from totals (only players with 5+ ABs)
+    # Season totals include anyone with an at-bat; batting order still needs 5+ ABs
     team = TeamBattingStatistics("Freebasers")
+    lineup_team = TeamBattingStatistics("Freebasers")
     for _, row in df_totals.iterrows():
-        if row["AB"] >= 5:  # Only include players with 5 or more at-bats
-            player = PlayerBattingStatistics(
-                row["Player"].strip(),
-                ab=row["AB"],
-                runs=row["R"],
-                singles=row["1B"],
-                doubles=row["2B"],
-                triples=row["3B"],
-                hr=row["HR"],
-                rbi=row["RBI"],
-                bb=row["BB"],
-                so=row["SO"],
-                sf=row["SF"],
-            )
+        player = PlayerBattingStatistics(
+            row["Player"].strip(),
+            ab=row["AB"],
+            runs=row["R"],
+            singles=row["1B"],
+            doubles=row["2B"],
+            triples=row["3B"],
+            hr=row["HR"],
+            rbi=row["RBI"],
+            bb=row["BB"],
+            so=row["SO"],
+            sf=row["SF"],
+        )
+        if row["AB"] > 0:
             team.add_player(player)
+        if row["AB"] >= 5:
+            lineup_team.add_player(player)
 
     # Convert to DataFrame (ready for Streamlit)
     df_season, df_season_totals = team.to_dataframe(include_totals=True)
@@ -656,10 +660,8 @@ if tab_choice == "Hitting":
         "ISO": st.column_config.NumberColumn("ISO", format="%.3f", width="small"),
     }
     
-    # Filter dataframe to only show players with 5+ ABs
-    df_season_filtered = df_season[df_season["AB"] >= 5]
     st.dataframe(
-        df_season_filtered.sort_values(by="H", ascending=False), 
+        df_season.sort_values(by="H", ascending=False), 
         column_config=column_config,
         use_container_width=True, 
         hide_index=True
@@ -787,10 +789,10 @@ if tab_choice == "Hitting":
     st.write("\n\n\n\n\n\n\n")
 
     st.subheader("Optimal Batting Lineup -- Given Current Stats")
-    if len(team.players) < 6:
+    if len(lineup_team.players) < 6:
         st.info("Batting order appears after at least 6 players have 5+ at-bats.")
     else:
-        df = calculate_optimal_batting_order(team)
+        df = calculate_optimal_batting_order(lineup_team)
         display_df = df
         display_df = display_df["Player"].apply(extract_name)
         st.dataframe(display_df)
