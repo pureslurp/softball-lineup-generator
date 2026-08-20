@@ -2,7 +2,8 @@ import operator
 import streamlit as st
 import pandas as pd
 
-import pandas as pd
+# Minimum at-bats to appear in batting order, fire/ice, and lineup rationale
+MIN_ABS = 4
 
 class PlayerBattingStatistics:
     def __init__(self, name, ab=0, runs=0, singles=0, doubles=0, triples=0, hr=0, rbi=0, bb=0, so=0, sf=0):
@@ -124,7 +125,7 @@ class TeamBattingStatistics:
     def get_fire(self):
         # sort players by ops
         players = list(self.players.values())
-        players = [p for p in players if p.ab >= 5]
+        players = [p for p in players if p.ab >= MIN_ABS]
         players.sort(key=operator.attrgetter('ops'), reverse=True)
         fire = []
         for player in players:
@@ -341,8 +342,8 @@ def calculate_optimal_batting_order(stats: TeamBattingStatistics, omit: list[str
     Bottom (9–10): Weaker hitters, but ideally people who can still get on base and "turn the lineup over" back to the top.
     '''
     players = list(stats.players.values())
-    # Filter out players with less than 5 ABs and omitted players
-    players = [p for p in players if p.ab >= 5 and p.name.strip() not in omit]
+    # Filter out players with fewer than MIN_ABS at-bats and omitted players
+    players = [p for p in players if p.ab >= MIN_ABS and p.name.strip() not in omit]
     lineup = []
     
     # 1. Leadoff hitter: Top 4 OBP players, then lowest SLG among them. Second hitter next lowest SLG.
@@ -380,7 +381,7 @@ def find_fire_ice(df_games):
         df_games_l3_totals = df_games_l3.groupby("Player", as_index=False).sum()
         team_l3 = TeamBattingStatistics("Freebasers L3")
         for _, row in df_games_l3_totals.iterrows():
-            if row["AB"] >= 5:  # Only include players with 5 or more at-bats
+            if row["AB"] >= MIN_ABS:
                 player = PlayerBattingStatistics(
                     row["Player"].strip(),
                     ab=row["AB"],
@@ -613,7 +614,7 @@ if tab_choice == "Hitting":
     # Aggregate season totals per player
     df_totals = df_games.groupby("Player", as_index=False).sum()
 
-    # Season totals include anyone with an at-bat; batting order still needs 5+ ABs
+    # Season totals include anyone with an at-bat; batting order still needs MIN_ABS
     team = TeamBattingStatistics("Freebasers")
     lineup_team = TeamBattingStatistics("Freebasers")
     for _, row in df_totals.iterrows():
@@ -632,7 +633,7 @@ if tab_choice == "Hitting":
         )
         if row["AB"] > 0:
             team.add_player(player)
-        if row["AB"] >= 5:
+        if row["AB"] >= MIN_ABS:
             lineup_team.add_player(player)
 
     # Convert to DataFrame (ready for Streamlit)
@@ -790,7 +791,7 @@ if tab_choice == "Hitting":
 
     st.subheader("Optimal Batting Lineup -- Given Current Stats")
     if len(lineup_team.players) < 6:
-        st.info("Batting order appears after at least 6 players have 5+ at-bats.")
+        st.info(f"Batting order appears after at least 6 players have {MIN_ABS}+ at-bats.")
     else:
         df = calculate_optimal_batting_order(lineup_team)
         display_df = df
